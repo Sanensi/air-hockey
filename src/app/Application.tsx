@@ -1,11 +1,14 @@
-import { ThemeProvider } from "@mui/material";
-import { theme } from "./theme";
+import { Game } from "./Game";
 import { MainMenu } from "./MainMenu";
+import { Routes, useRouting } from "./Routing";
 
 export const Application = () => {
-  return (
-    <ThemeProvider theme={theme} >
-      <MainMenu />
-    </ThemeProvider>
-  );
+  const { current } = useRouting();
+
+  switch (current) {
+    case Routes.Main:
+      return <MainMenu />;  
+    case Routes.Local:
+      return <Game />;
+  }
 };

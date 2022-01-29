@@ -5,7 +5,7 @@ const sourcePath = path.join(__dirname, 'src');
 const nodeModulesPath = path.join(__dirname, 'node_modules');
 
 module.exports = {
-  entry: path.join(sourcePath, 'index.ts'),
+  entry: path.join(sourcePath, 'index.tsx'),
 
   module: {
     rules: [

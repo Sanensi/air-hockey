@@ -1,14 +1,11 @@
-import styled from "@emotion/styled";
-import { Container } from "@mui/material";
-
-const Red = styled.span`
-  color: red;
-`
+import { ThemeProvider } from "@mui/material";
+import { theme } from "./theme";
+import { MainMenu } from "./MainMenu";
 
 export const Application = () => {
   return (
-    <Container>
-      Hello <Red>World!</Red>
-    </Container>
+    <ThemeProvider theme={theme} >
+      <MainMenu />
+    </ThemeProvider>
   );
-}
+};

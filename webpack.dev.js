@@ -2,6 +2,7 @@ const path = require('path');
 const { merge } = require('webpack-merge');
 const common = require('./webpack.common');
 
+const contentBase = path.join(__dirname, 'src');
 const outputPath = path.join(__dirname, 'build', 'dev');
 
 module.exports = merge(common, {
@@ -13,7 +14,7 @@ module.exports = merge(common, {
     publicPath: '/'
   },
   devServer: {
-    contentBase: outputPath,
+    contentBase: contentBase,
     watchContentBase: true,
     historyApiFallback: true,
   }

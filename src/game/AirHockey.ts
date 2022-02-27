@@ -1,35 +1,41 @@
-import { Graphics } from "pixi.js";
+import { Sprite } from "pixi.js";
 import { PixiApplicationBase } from "../libraries/PixiApplicationBase";
 
+import background_image from "./assets/background.png";
 
 export class AirHockey extends PixiApplicationBase {
-  private triangle = new Graphics();
+  private background = new Sprite();
+  public onUpdate = () => { /** noop */ }
+
+  public get loading() { return this.app.loader.loading; }
 
   constructor(canvas: HTMLCanvasElement) {
     super(canvas, { antialias: true, backgroundColor: 0xffffff });
+    this.app.loader.add(background_image);
+    this.app.loader.load((_, resources) => {
+      this.onUpdate();
+      this.background = new Sprite(resources[background_image].texture);
+      this.init();
+    });
   }
 
-  protected start() {
-    const sqrt_3 = Math.sqrt(3);
-    this.triangle
-      .beginFill(0x0)
-      .moveTo(0, 1)
-      .lineTo(sqrt_3 / 2, -1 / 2)
-      .lineTo(-sqrt_3 / 2, -1 / 2)
-      .closePath()
-      .endFill();
-    
-    this.triangle.position.set(this.canvas.width / 2, this.canvas.height / 2);
-    this.triangle.scale.set(100);
-
-    this.app.stage.addChild(this.triangle);
+  protected start(): void {
+    this.background.anchor.set(0.5);
+    this.app.stage.addChild(this.background);
+    this.resize();
   }
 
-  protected update() {
-    this.triangle.angle = this.triangle.angle + 120 * this.app.ticker.deltaMS / 1000;
-  }
+  protected resize(): void {
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    const proportion = this.background.texture.width / this.background.texture.height;
+    const fillWidth = w / h < proportion;
 
-  protected resize() {
-    this.triangle.position.set(this.canvas.width / 2, this.canvas.height / 2);
+    const width = fillWidth ? w : h * proportion;
+    const height = !fillWidth ? h : w / proportion;
+
+    this.background.position.set(w / 2, h / 2);
+    this.background.height = height;
+    this.background.width = width;
   }
 }

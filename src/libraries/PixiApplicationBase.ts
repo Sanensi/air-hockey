@@ -15,11 +15,16 @@ export abstract class PixiApplicationBase {
 
   protected resize() { /** noop */ }
 
-  public init() {
-    window.addEventListener("resize", this._resize);
+  protected init() {
+    this.canvas.width = this.canvas.clientWidth;
+    this.canvas.height = this.canvas.clientHeight;
+    this.app.screen.width = this.canvas.clientWidth;
+    this.app.screen.height = this.canvas.clientHeight;
     this.start();
-    this._resize();
+
     this.app.ticker.add(this._update);
+    window.addEventListener("resize", this._resize);
+
     return this;
   }
 

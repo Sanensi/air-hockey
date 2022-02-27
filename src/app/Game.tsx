@@ -15,9 +15,7 @@ export const Game = () => {
     const canvas = canvasRef.current;
     if (!canvas) throw new Error("No HTMLCanvasElement found");
 
-    const game = new AirHockey(canvas);
-    game.start();
-
+    const game = new AirHockey(canvas).init();
     return () => game.destroy();
   }, []);
 

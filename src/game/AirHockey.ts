@@ -1,21 +1,17 @@
-import { Application, Graphics } from "pixi.js";
+import { Graphics } from "pixi.js";
+import { PixiApplicationBase } from "../libraries/PixiApplicationBase";
 
 
-export class AirHockey {
-  private readonly canvas: HTMLCanvasElement;
-  private readonly app: Application;
+export class AirHockey extends PixiApplicationBase {
+  private triangle = new Graphics();
 
   constructor(canvas: HTMLCanvasElement) {
-    this.canvas = canvas;
-    this.app = new Application({ view: canvas, backgroundColor: 0xffffff, antialias: true });
-    this.app.resizeTo = this.canvas;
-    window.addEventListener("resize", this.resize);
+    super(canvas, { antialias: true, backgroundColor: 0xffffff });
   }
 
-  public start() {
+  protected start() {
     const sqrt_3 = Math.sqrt(3);
-    const triangle = new Graphics();
-    triangle
+    this.triangle
       .beginFill(0x0)
       .moveTo(0, 1)
       .lineTo(sqrt_3 / 2, -1 / 2)
@@ -23,20 +19,17 @@ export class AirHockey {
       .closePath()
       .endFill();
     
-    triangle.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
-    triangle.scale.set(100);
-    this.app.stage.addChild(triangle);
+    this.triangle.position.set(this.canvas.width / 2, this.canvas.height / 2);
+    this.triangle.scale.set(100);
+
+    this.app.stage.addChild(this.triangle);
   }
 
-  public destroy() {
-    this.app.destroy(false, true);
-    window.removeEventListener("resize", this.resize);
+  protected update() {
+    this.triangle.angle = this.triangle.angle + 120 * this.app.ticker.deltaMS / 1000;
   }
 
-  private resize = () => {
-    const width = this.canvas.clientWidth;
-    const height = this.canvas.clientHeight;
-    this.app.renderer.resize(width, height);
-    this.app.stage.getChildAt(0).position.set(width / 2, height / 2);
+  protected resize() {
+    this.triangle.position.set(this.canvas.width / 2, this.canvas.height / 2);
   }
 }

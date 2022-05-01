@@ -1,17 +1,27 @@
 import { InteractionEvent, Sprite } from "pixi.js";
 import { PixiApplicationBase } from "../libraries/PixiApplicationBase";
+import { Vec2 } from "../libraries/Vec2";
 
 import background_image from "./assets/background.png";
 import handle_image from "./assets/handle.png";
 
+type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
+
+const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 7;
+
 export class AirHockey extends PixiApplicationBase {
   private background = new Sprite();
+  private friction = 0.01;
 
   private handle1 = new Sprite();
   private handle1PointerId: number | null = null;
+  private handle1Velocity = new Vec2();
+  private handle1PositionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
 
   private handle2 = new Sprite();
   private handle2PointerId: number | null = null;
+  private handle2Velocity = new Vec2();
+  private handle2PositionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
 
   public onUpdate = () => { /** noop */ }
 
@@ -60,6 +70,34 @@ export class AirHockey extends PixiApplicationBase {
         this.handle2.position.copyFrom(position);
       }
     });
+  }
+
+  protected update(): void {
+    if (this.handle1PointerId === null) {
+      const previous = new Vec2(this.handle1.position);
+      const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+      this.handle1.position.copyFrom(next);
+      this.handle1Velocity = (this.handle1Velocity.length() > 0.001) ? this.handle1Velocity.scale(1 - this.friction) : Vec2.ZERO;
+    }
+    else {
+      const [_, p1] = this.handle1PositionMeasurments;
+      const p2 = new Vec2(this.handle1.position);
+      this.handle1Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
+      this.handle1PositionMeasurments = [p1, p2];
+    }
+
+    if (this.handle2PointerId === null) {
+      const previous = new Vec2(this.handle2.position);
+      const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+      this.handle2.position.copyFrom(next);
+      this.handle2Velocity = (this.handle2Velocity.length() > 0.001) ? this.handle2Velocity.scale(1 - this.friction) : Vec2.ZERO;
+    }
+    else {
+      const [_, p1] = this.handle2PositionMeasurments;
+      const p2 = new Vec2(this.handle2.position);
+      this.handle2Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
+      this.handle2PositionMeasurments = [p1, p2];
+    }
   }
 
   protected resize(): void {

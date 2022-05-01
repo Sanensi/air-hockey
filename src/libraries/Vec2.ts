@@ -80,9 +80,18 @@ export class Vec2 {
     return length <= 0.001 ? Vec2.ZERO : this.divide(length);
   }
 
-  public rectangleClamp(min: number, max: number) {
-    console.assert(min <= max, new Error(`Can't clamp when min > max: ${min} is greater than ${max}`));
-    return new Vec2(Math.min(Math.max(this.x, min), max), Math.min(Math.max(this.y, min), max));
+  public rectangleClamp(min: number, max: number): Vec2
+  public rectangleClamp(min: Vec2, max: Vec2): Vec2
+  public rectangleClamp(min: number | Vec2, max: number | Vec2) {
+    if (typeof min === "number" && typeof max === "number") {
+      console.assert(!(max - min < 0), `Can't clamp when min > max: ${min} is greater than ${max}`);
+      return new Vec2(Math.min(Math.max(this.x, min), max), Math.min(Math.max(this.y, min), max));
+    }
+    else if (min instanceof Vec2 && max instanceof Vec2) {
+      const difference = max.substract(min);
+      console.assert(!(difference.x < 0 || difference.y < 0), "Can't clamp when min > max", min, max, difference);
+      return new Vec2(Math.min(Math.max(this.x, min.x), max.x), Math.min(Math.max(this.y, min.y), max.y));
+    }
   }
 
   public static angleBetween(a: Vec2, b: Vec2) {

@@ -1,4 +1,4 @@
-import { InteractionEvent, Sprite } from "pixi.js";
+import { Circle, InteractionEvent, Rectangle, Sprite } from "pixi.js";
 import { PixiApplicationBase } from "../libraries/PixiApplicationBase";
 import { Vec2 } from "../libraries/Vec2";
 
@@ -7,26 +7,20 @@ import handle_image from "./assets/handle.png";
 
 type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
 
+const OUTER_SIZE = new Vec2(1012, 1594);
+
 const INNER_SIZE = new Vec2(930, 1521);
 const INNER_TOP_LEFT = new Vec2(42, 37);
 const INNER_BOTTOM_RIGHT = INNER_TOP_LEFT.add(INNER_SIZE);
 
 const HANDLE_RADIUS = 185 / 2;
-const MIN_HANDLE_POSITION = INNER_TOP_LEFT.add(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
-const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
+const MIN_HANDLE_POSITION = INNER_TOP_LEFT.add(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS)).substract(OUTER_SIZE.divide(2));
+const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS)).substract(OUTER_SIZE.divide(2));
 
 const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 7;
 
 export class AirHockey extends PixiApplicationBase {
   private background = new Sprite();
-  private get minHandlePosition() {
-    const offset = new Vec2(this.background.texture.width / 2, this.background.texture.height / 2);
-    return MIN_HANDLE_POSITION.substract(offset);
-  }
-  private get maxHandlePosition() {
-    const offset = new Vec2(this.background.texture.width / 2, this.background.texture.height / 2);
-    return MAX_HANDLE_POSITION.substract(offset);
-  }
   private friction = 0.01;
 
   private handle1 = new Sprite();
@@ -75,7 +69,7 @@ export class AirHockey extends PixiApplicationBase {
     this.handle1.addListener("pointermove", (e: InteractionEvent) => {
       if (e.data.pointerId === this.handle1PointerId) {
         const position = new Vec2(e.data.getLocalPosition(this.background));
-        const clampedPosition = position.rectangleClamp(this.minHandlePosition, this.maxHandlePosition);
+        const clampedPosition = position.rectangleClamp(MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
         this.handle1.position.copyFrom(clampedPosition);
       }
     });
@@ -105,45 +99,28 @@ export class AirHockey extends PixiApplicationBase {
       const previous = new Vec2(this.handle1.position);
       const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
 
-      // Detect collision with inner bounds and apply proper reaction
-      if (
-        this.minHandlePosition.x < next.x && next.x >= this.maxHandlePosition.x &&
-        this.minHandlePosition.y < next.y && next.y < this.maxHandlePosition.y
-      ) {
-        this.handle1Velocity = new Vec2(-this.handle1Velocity.x, this.handle1Velocity.y);
-        const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
-        this.handle1.position.copyFrom(next);
-      }
-      else if (
-        this.minHandlePosition.x >= next.x && next.x < this.maxHandlePosition.x &&
-        this.minHandlePosition.y < next.y && next.y < this.maxHandlePosition.y
-      ) {
-        this.handle1Velocity = new Vec2(-this.handle1Velocity.x, this.handle1Velocity.y);
-        const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
-        this.handle1.position.copyFrom(next);
-      }
-      else if (
-        this.minHandlePosition.x < next.x && next.x < this.maxHandlePosition.x &&
-        this.minHandlePosition.y < next.y && next.y >= this.maxHandlePosition.y
-      ) {
-        this.handle1Velocity = new Vec2(this.handle1Velocity.x, -this.handle1Velocity.y);
-        const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
-        this.handle1.position.copyFrom(next);
-      }
-      else if (
-        this.minHandlePosition.x < next.x && next.x < this.maxHandlePosition.x &&
-        this.minHandlePosition.y >= next.y && next.y < this.maxHandlePosition.y
-      ) {
-        this.handle1Velocity = new Vec2(this.handle1Velocity.x, -this.handle1Velocity.y);
-        const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
-        this.handle1.position.copyFrom(next);
-      }
-      // Apply basic movement if no collision
-      else if (
-        this.minHandlePosition.x < next.x && next.x < this.maxHandlePosition.x &&
-        this.minHandlePosition.y < next.y && next.y < this.maxHandlePosition.y
-      ) {
-        this.handle1.position.copyFrom(next);
+      const handle = new Circle(next.x, next.y, this.handle1.texture.width / 2);
+      const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
+      const bounds = new Rectangle(topLeft.x, topLeft.y, INNER_SIZE.x, INNER_SIZE.y);
+
+      switch (this.boundCollisionTest(handle, bounds)) {
+        case "no-collision":
+          this.handle1.position.copyFrom(next);
+          break;
+        case "left":
+        case "right": {
+          this.handle1Velocity = new Vec2(-this.handle1Velocity.x, this.handle1Velocity.y);
+          const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+          this.handle1.position.copyFrom(next);
+          break;
+        }
+        case "top":
+        case "bottom": {
+          this.handle1Velocity = new Vec2(this.handle1Velocity.x, -this.handle1Velocity.y);
+          const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+          this.handle1.position.copyFrom(next);
+          break;
+        }
       }
 
       // Apply friction
@@ -162,6 +139,41 @@ export class AirHockey extends PixiApplicationBase {
     //   this.handle2Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
     //   this.handle2PositionMeasurments = [p1, p2];
     // }
+  }
+
+  private boundCollisionTest(circle: Circle, bounds: Rectangle) {
+    const topLeft = new Vec2(bounds.left, bounds.top);
+    const bottomRight = new Vec2(bounds.right, bounds.bottom);
+    const min = topLeft.add(new Vec2(circle.radius, circle.radius));
+    const max = bottomRight.substract(new Vec2(circle.radius, circle.radius));
+
+    if (
+      min.x < circle.x && circle.x >= max.x &&
+      min.y < circle.y && circle.y < max.y
+    ) {
+      return "right";
+    }
+    else if (
+      min.x >= circle.x && circle.x < max.x &&
+      min.y < circle.y && circle.y < max.y
+    ) {
+      return "left";
+    }
+    else if (
+      min.x < circle.x && circle.x < max.x &&
+      min.y < circle.y && circle.y >= max.y
+    ) {
+      return "top";
+    }
+    else if (
+      min.x < circle.x && circle.x < max.x &&
+      min.y >= circle.y && circle.y < max.y
+    ) {
+      return "bottom";
+    }
+    else {
+      return "no-collision";
+    }
   }
 
   protected resize(): void {

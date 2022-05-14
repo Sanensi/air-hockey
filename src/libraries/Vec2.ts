@@ -51,6 +51,10 @@ export class Vec2 {
     }
   }
 
+  public dot(v: Vec2) {
+    return this.x * v.x + this.y * v.y;
+  }
+
   public map(f: (a: number) => number) {
     return new Vec2(f(this.x), f(this.y));
   }

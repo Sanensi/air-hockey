@@ -4,6 +4,7 @@ import { Vec2 } from "../libraries/Vec2";
 
 import background_image from "./assets/background.png";
 import handle_image from "./assets/handle.png";
+import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Collision";
 
 type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
 
@@ -73,6 +74,10 @@ export class AirHockey extends PixiApplicationBase {
         this.handle1.position.copyFrom(clampedPosition);
       }
     });
+    this.background.interactive = true;
+    this.background.addListener("click", (e: InteractionEvent) => {
+      console.log(e.data.getLocalPosition(this.background));
+    });
 
     // Initialize handle2 interactivity
     // this.handle2.interactive = true;
@@ -99,11 +104,11 @@ export class AirHockey extends PixiApplicationBase {
       const previous = new Vec2(this.handle1.position);
       const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
 
-      const handle = new Circle(next.x, next.y, this.handle1.texture.width / 2);
+      const handle1 = new Circle(next.x, next.y, this.handle1.texture.width / 2);
       const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
       const bounds = new Rectangle(topLeft.x, topLeft.y, INNER_SIZE.x, INNER_SIZE.y);
 
-      switch (this.boundCollisionTest(handle, bounds)) {
+      switch (circleToBoundsCollisionTest(handle1, bounds)) {
         case "no-collision":
           this.handle1.position.copyFrom(next);
           break;
@@ -123,8 +128,18 @@ export class AirHockey extends PixiApplicationBase {
         }
       }
 
+      // const handle1 = new Circle(this.handle1.x, this.handle1.y, this.handle1.texture.width / 2);
+      // const handle2 = new Circle(this.handle2.x, this.handle2.y, this.handle2.width / 2);
+      // if (circleToCircleCollisionTest(handle1, handle2) === "collision") {
+      //   const p1 = new Vec2(handle1);
+      //   const p2 = new Vec2(handle2);
+      //   const normal = p2.substract(p1).normalize();
+      //   const foo = normal.scale(-2 * normal.dot(this.handle1Velocity));
+      //   this.handle1Velocity = this.handle1Velocity.substract(foo);
+      // }
+
       // Apply friction
-      this.handle1Velocity = (this.handle1Velocity.length() > 0.001) ? this.handle1Velocity.scale(1 - this.friction) : Vec2.ZERO;
+      // this.handle1Velocity = (this.handle1Velocity.length() > 0.001) ? this.handle1Velocity.scale(1 - this.friction) : Vec2.ZERO;
     }
 
     // if (this.handle2PointerId === null) {
@@ -139,41 +154,6 @@ export class AirHockey extends PixiApplicationBase {
     //   this.handle2Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
     //   this.handle2PositionMeasurments = [p1, p2];
     // }
-  }
-
-  private boundCollisionTest(circle: Circle, bounds: Rectangle) {
-    const topLeft = new Vec2(bounds.left, bounds.top);
-    const bottomRight = new Vec2(bounds.right, bounds.bottom);
-    const min = topLeft.add(new Vec2(circle.radius, circle.radius));
-    const max = bottomRight.substract(new Vec2(circle.radius, circle.radius));
-
-    if (
-      min.x < circle.x && circle.x >= max.x &&
-      min.y < circle.y && circle.y < max.y
-    ) {
-      return "right";
-    }
-    else if (
-      min.x >= circle.x && circle.x < max.x &&
-      min.y < circle.y && circle.y < max.y
-    ) {
-      return "left";
-    }
-    else if (
-      min.x < circle.x && circle.x < max.x &&
-      min.y < circle.y && circle.y >= max.y
-    ) {
-      return "top";
-    }
-    else if (
-      min.x < circle.x && circle.x < max.x &&
-      min.y >= circle.y && circle.y < max.y
-    ) {
-      return "bottom";
-    }
-    else {
-      return "no-collision";
-    }
   }
 
   protected resize(): void {

@@ -139,7 +139,7 @@ export class AirHockey extends PixiApplicationBase {
       // }
 
       // Apply friction
-      // this.handle1Velocity = (this.handle1Velocity.length() > 0.001) ? this.handle1Velocity.scale(1 - this.friction) : Vec2.ZERO;
+      this.handle1Velocity = (this.handle1Velocity.length() > 0.001) ? this.handle1Velocity.scale(1 - this.friction) : Vec2.ZERO;
     }
 
     // if (this.handle2PointerId === null) {

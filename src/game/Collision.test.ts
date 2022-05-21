@@ -1,5 +1,5 @@
 import { Circle, Rectangle } from "pixi.js";
-import { circleToBoundsCollisionTest } from "./Collision";
+import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Collision";
 
 describe("circleToBoundsCollisionTest", () => {
   test('given a small circle inside a large boundary, when collisionTest, then return "no-collision"', () => {
@@ -54,5 +54,43 @@ describe("circleToBoundsCollisionTest", () => {
     const testResult = circleToBoundsCollisionTest(circle, bounds);
 
     expect(["left", "right", "top", "bottom"]).toContain(testResult);
+  });
+});
+
+describe("circleToCircleCollisionTest", () => {
+  test('given two circle not touching, when collisionTest, then return "no-collision"', () => {
+    const circle1 = new Circle(0, 0, 1);
+    const circle2 = new Circle(0, 10, 1);
+
+    const testResult = circleToCircleCollisionTest(circle1, circle2);
+
+    expect(testResult).toEqual("no-collision");
+  });
+
+  test('given two circle barely touching, when collisionTest, then return "collision"', () => {
+    const circle1 = new Circle(0, 0, 1);
+    const circle2 = new Circle(2, 0, 1);
+
+    const testResult = circleToCircleCollisionTest(circle1, circle2);
+
+    expect(testResult).toEqual("collision");
+  });
+
+  test('given two circle barely touching diagonnally, when collisionTest, then return "collision"', () => {
+    const circle1 = new Circle(0, 0, 1);
+    const circle2 = new Circle(2 * Math.cos(Math.PI / 4), 2 * Math.sin(Math.PI / 4), 1);
+
+    const testResult = circleToCircleCollisionTest(circle1, circle2);
+
+    expect(testResult).toEqual("collision");
+  });
+
+  test('given two circle clearly overlapping, when collisionTest, then return "collision"', () => {
+    const circle1 = new Circle(0, 0, 1);
+    const circle2 = new Circle(0.5, 0.5, 1);
+
+    const testResult = circleToCircleCollisionTest(circle1, circle2);
+
+    expect(testResult).toEqual("collision");
   });
 });

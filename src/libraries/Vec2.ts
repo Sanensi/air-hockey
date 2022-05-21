@@ -75,8 +75,12 @@ export class Vec2 {
     );
   }
 
+  public lengthSquared() {
+    return this.x * this.x + this.y * this.y;
+  }
+
   public length() {
-    return Math.sqrt(this.x * this.x + this.y * this.y);
+    return Math.sqrt(this.lengthSquared());
   }
 
   public normalize() {

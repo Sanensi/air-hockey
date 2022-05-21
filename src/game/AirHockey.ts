@@ -5,6 +5,7 @@ import { Vec2 } from "../libraries/Vec2";
 import background_image from "./assets/background.png";
 import handle_image from "./assets/handle.png";
 import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Collision";
+import { fullyElasticCollision } from "./Reaction";
 
 type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
 
@@ -102,6 +103,7 @@ export class AirHockey extends PixiApplicationBase {
     // Calculate handle1 position and velocity when it is not held
     else {
       const previous = new Vec2(this.handle1.position);
+      const previous2 = new Vec2(this.handle2.position);
       const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
 
       const handle1 = new Circle(next.x, next.y, this.handle1.texture.width / 2);
@@ -128,32 +130,80 @@ export class AirHockey extends PixiApplicationBase {
         }
       }
 
-      // const handle1 = new Circle(this.handle1.x, this.handle1.y, this.handle1.texture.width / 2);
-      // const handle2 = new Circle(this.handle2.x, this.handle2.y, this.handle2.width / 2);
-      // if (circleToCircleCollisionTest(handle1, handle2) === "collision") {
-      //   const p1 = new Vec2(handle1);
-      //   const p2 = new Vec2(handle2);
-      //   const normal = p2.substract(p1).normalize();
-      //   const foo = normal.scale(-2 * normal.dot(this.handle1Velocity));
-      //   this.handle1Velocity = this.handle1Velocity.substract(foo);
-      // }
+      const handle2 = new Circle(this.handle2.x, this.handle2.y, this.handle2.width / 2);
+      if (circleToCircleCollisionTest(handle1, handle2) === "collision") {
+        const p1 = new Vec2(this.handle1);
+        const p2 = new Vec2(this.handle2);
+        const v1_prime = fullyElasticCollision(1, 1, this.handle1Velocity, this.handle2Velocity, p1, p2);
+        const v2_prime = fullyElasticCollision(1, 1, this.handle2Velocity, this.handle1Velocity, p2, p1);
+        this.handle1Velocity = v1_prime;
+        this.handle2Velocity = v2_prime;
+
+        const next1 = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+        const next2 = previous2.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+        this.handle1.position.copyFrom(next1);
+        this.handle2.position.copyFrom(next2);
+      }
 
       // Apply friction
       this.handle1Velocity = (this.handle1Velocity.length() > 0.001) ? this.handle1Velocity.scale(1 - this.friction) : Vec2.ZERO;
     }
 
-    // if (this.handle2PointerId === null) {
-    //   const previous = new Vec2(this.handle2.position);
-    //   const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
-    //   this.handle2.position.copyFrom(next);
-    //   this.handle2Velocity = (this.handle2Velocity.length() > 0.001) ? this.handle2Velocity.scale(1 - this.friction) : Vec2.ZERO;
-    // }
-    // else {
-    //   const [_, p1] = this.handle2PositionMeasurments;
-    //   const p2 = new Vec2(this.handle2.position);
-    //   this.handle2Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
-    //   this.handle2PositionMeasurments = [p1, p2];
-    // }
+    // Calculate handle2 instant velocity when it is held
+    if (this.handle2PointerId !== null) {
+      const [_, p1] = this.handle2PositionMeasurments;
+      const p2 = new Vec2(this.handle2.position);
+      this.handle2Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
+      this.handle2PositionMeasurments = [p1, p2];
+    }
+    // Calculate handle2 position and velocity when it is not held
+    else {
+      const previous = new Vec2(this.handle2.position);
+      const previous2 = new Vec2(this.handle1.position);
+      const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+
+      const handle2 = new Circle(next.x, next.y, this.handle2.texture.width / 2);
+      const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
+      const bounds = new Rectangle(topLeft.x, topLeft.y, INNER_SIZE.x, INNER_SIZE.y);
+
+      switch (circleToBoundsCollisionTest(handle2, bounds)) {
+        case "no-collision":
+          this.handle2.position.copyFrom(next);
+          break;
+        case "left":
+        case "right": {
+          this.handle2Velocity = new Vec2(-this.handle2Velocity.x, this.handle2Velocity.y);
+          const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+          this.handle2.position.copyFrom(next);
+          break;
+        }
+        case "top":
+        case "bottom": {
+          this.handle2Velocity = new Vec2(this.handle2Velocity.x, -this.handle2Velocity.y);
+          const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+          this.handle2.position.copyFrom(next);
+          break;
+        }
+      }
+
+      const handle1 = new Circle(this.handle1.x, this.handle1.y, this.handle1.width / 2);
+      if (circleToCircleCollisionTest(handle2, handle1) === "collision") {
+        const p1 = new Vec2(this.handle2);
+        const p2 = new Vec2(this.handle1);
+        const v1_prime = fullyElasticCollision(1, 1, this.handle2Velocity, this.handle1Velocity, p1, p2);
+        const v2_prime = fullyElasticCollision(1, 1, this.handle1Velocity, this.handle2Velocity, p2, p1);
+        this.handle2Velocity = v1_prime;
+        this.handle1Velocity = v2_prime;
+
+        const next1 = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+        const next2 = previous2.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+        this.handle2.position.copyFrom(next1);
+        this.handle1.position.copyFrom(next2);
+      }
+
+      // Apply friction
+      this.handle2Velocity = (this.handle2Velocity.length() > 0.001) ? this.handle2Velocity.scale(1 - this.friction) : Vec2.ZERO;
+    }
   }
 
   protected resize(): void {

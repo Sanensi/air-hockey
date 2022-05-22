@@ -63,109 +63,8 @@ export class AirHockey extends PixiApplicationBase {
   }
 
   protected update(): void {
-    // Calculate handle1 instant velocity when it is held
-    if (this.handle1.pointerId !== null) {
-      this.measureHandleInstantVelocity(this.handle1);
-    }
-    // Calculate handle1 position and velocity when it is not held
-    else {
-      const previous = new Vec2(this.handle1.position);
-      const previous2 = new Vec2(this.handle2.position);
-      const next = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
-
-      const handle1 = new Circle(next.x, next.y, this.handle1.texture.width / 2);
-      const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
-      const bounds = new Rectangle(topLeft.x, topLeft.y, INNER_SIZE.x, INNER_SIZE.y);
-
-      switch (circleToBoundsCollisionTest(handle1, bounds)) {
-        case "no-collision":
-          this.handle1.position.copyFrom(next);
-          break;
-        case "left":
-        case "right": {
-          this.handle1.velocity = new Vec2(-this.handle1.velocity.x, this.handle1.velocity.y);
-          const next = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
-          this.handle1.position.copyFrom(next);
-          break;
-        }
-        case "top":
-        case "bottom": {
-          this.handle1.velocity = new Vec2(this.handle1.velocity.x, -this.handle1.velocity.y);
-          const next = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
-          this.handle1.position.copyFrom(next);
-          break;
-        }
-      }
-
-      const handle2 = new Circle(this.handle2.x, this.handle2.y, this.handle2.width / 2);
-      if (circleToCircleCollisionTest(handle1, handle2) === "collision") {
-        const p1 = new Vec2(this.handle1);
-        const p2 = new Vec2(this.handle2);
-        const v1_prime = fullyElasticCollision(1, 1, this.handle1.velocity, this.handle2.velocity, p1, p2);
-        const v2_prime = fullyElasticCollision(1, 1, this.handle2.velocity, this.handle1.velocity, p2, p1);
-        this.handle1.velocity = v1_prime;
-        this.handle2.velocity = v2_prime;
-
-        const next1 = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
-        const next2 = previous2.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
-        this.handle1.position.copyFrom(next1);
-        this.handle2.position.copyFrom(next2);
-      }
-
-      this.applyFriction(this.handle1, this.friction);
-    }
-
-    // Calculate handle2 instant velocity when it is held
-    if (this.handle2.pointerId !== null) {
-      this.measureHandleInstantVelocity(this.handle2);
-    }
-    // Calculate handle2 position and velocity when it is not held
-    else {
-      const previous = new Vec2(this.handle2.position);
-      const previous2 = new Vec2(this.handle1.position);
-      const next = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
-
-      const handle2 = new Circle(next.x, next.y, this.handle2.texture.width / 2);
-      const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
-      const bounds = new Rectangle(topLeft.x, topLeft.y, INNER_SIZE.x, INNER_SIZE.y);
-
-      switch (circleToBoundsCollisionTest(handle2, bounds)) {
-        case "no-collision":
-          this.handle2.position.copyFrom(next);
-          break;
-        case "left":
-        case "right": {
-          this.handle2.velocity = new Vec2(-this.handle2.velocity.x, this.handle2.velocity.y);
-          const next = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
-          this.handle2.position.copyFrom(next);
-          break;
-        }
-        case "top":
-        case "bottom": {
-          this.handle2.velocity = new Vec2(this.handle2.velocity.x, -this.handle2.velocity.y);
-          const next = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
-          this.handle2.position.copyFrom(next);
-          break;
-        }
-      }
-
-      const handle1 = new Circle(this.handle1.x, this.handle1.y, this.handle1.width / 2);
-      if (circleToCircleCollisionTest(handle2, handle1) === "collision") {
-        const p1 = new Vec2(this.handle2);
-        const p2 = new Vec2(this.handle1);
-        const v1_prime = fullyElasticCollision(1, 1, this.handle2.velocity, this.handle1.velocity, p1, p2);
-        const v2_prime = fullyElasticCollision(1, 1, this.handle1.velocity, this.handle2.velocity, p2, p1);
-        this.handle2.velocity = v1_prime;
-        this.handle1.velocity = v2_prime;
-
-        const next1 = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
-        const next2 = previous2.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
-        this.handle2.position.copyFrom(next1);
-        this.handle1.position.copyFrom(next2);
-      }
-
-      this.applyFriction(this.handle2, this.friction);
-    }
+    this.updateHandle(this.handle1, this.handle2);
+    this.updateHandle(this.handle2, this.handle1);
   }
 
   protected resize(): void {
@@ -196,6 +95,60 @@ export class AirHockey extends PixiApplicationBase {
         handle.position.copyFrom(clampedPosition);
       }
     });
+  }
+
+  private updateHandle(handle: Handle, oppositeHandle: Handle) {
+    // Calculate handle instant velocity when it is held
+    if (handle.pointerId !== null) {
+      this.measureHandleInstantVelocity(handle);
+    }
+    // Calculate handle position and velocity when it is not held
+    else {
+      const previousPosition = new Vec2(handle.position);
+      const nextPosition = previousPosition.add(handle.velocity.scale(this.app.ticker.deltaMS));
+
+      const handleCollider = new Circle(nextPosition.x, nextPosition.y, handle.texture.width / 2);
+      const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
+      const bounds = new Rectangle(topLeft.x, topLeft.y, INNER_SIZE.x, INNER_SIZE.y);
+
+      switch (circleToBoundsCollisionTest(handleCollider, bounds)) {
+        case "no-collision":
+          handle.position.copyFrom(nextPosition);
+          break;
+        case "left":
+        case "right": {
+          handle.velocity = new Vec2(-handle.velocity.x, handle.velocity.y);
+          const nextPosition = previousPosition.add(handle.velocity.scale(this.app.ticker.deltaMS));
+          handle.position.copyFrom(nextPosition);
+          break;
+        }
+        case "top":
+        case "bottom": {
+          handle.velocity = new Vec2(handle.velocity.x, -handle.velocity.y);
+          const nextPosition = previousPosition.add(handle.velocity.scale(this.app.ticker.deltaMS));
+          handle.position.copyFrom(nextPosition);
+          break;
+        }
+      }
+
+      const oppositePreviousPosition = new Vec2(oppositeHandle.position);
+      const oppositeHandleCollider = new Circle(oppositeHandle.x, oppositeHandle.y, oppositeHandle.width / 2);
+      if (circleToCircleCollisionTest(handleCollider, oppositeHandleCollider) === "collision") {
+        const p1 = new Vec2(handle);
+        const p2 = new Vec2(oppositeHandle);
+        const v1_prime = fullyElasticCollision(1, 1, handle.velocity, oppositeHandle.velocity, p1, p2);
+        const v2_prime = fullyElasticCollision(1, 1, oppositeHandle.velocity, handle.velocity, p2, p1);
+        handle.velocity = v1_prime;
+        oppositeHandle.velocity = v2_prime;
+
+        const nextPosition = previousPosition.add(handle.velocity.scale(this.app.ticker.deltaMS));
+        const oppositeNextPosition = oppositePreviousPosition.add(oppositeHandle.velocity.scale(this.app.ticker.deltaMS));
+        handle.position.copyFrom(nextPosition);
+        oppositeHandle.position.copyFrom(oppositeNextPosition);
+      }
+
+      this.applyFriction(handle, this.friction);
+    }
   }
 
   private measureHandleInstantVelocity(handle: Handle) {

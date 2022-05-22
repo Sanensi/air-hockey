@@ -112,8 +112,7 @@ export class AirHockey extends PixiApplicationBase {
         this.handle2.position.copyFrom(next2);
       }
 
-      // Apply friction
-      this.handle1.velocity = (this.handle1.velocity.length() > 0.001) ? this.handle1.velocity.scale(1 - this.friction) : Vec2.ZERO;
+      this.applyFriction(this.handle1, this.friction);
     }
 
     // Calculate handle2 instant velocity when it is held
@@ -165,8 +164,7 @@ export class AirHockey extends PixiApplicationBase {
         this.handle1.position.copyFrom(next2);
       }
 
-      // Apply friction
-      this.handle2.velocity = (this.handle2.velocity.length() > 0.001) ? this.handle2.velocity.scale(1 - this.friction) : Vec2.ZERO;
+      this.applyFriction(this.handle2, this.friction);
     }
   }
 
@@ -205,5 +203,9 @@ export class AirHockey extends PixiApplicationBase {
     const p2 = new Vec2(handle.position);
     handle.velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
     handle.positionMeasurments = [p1, p2];
+  }
+
+  private applyFriction(handle: Handle, friction: number) {
+    handle.velocity = (handle.velocity.length() > 0.001) ? handle.velocity.scale(1 - friction) : Vec2.ZERO;
   }
 }

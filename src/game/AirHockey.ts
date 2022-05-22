@@ -21,17 +21,19 @@ const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS,
 
 const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 7;
 
+class Handle extends Sprite {
+  public pointerId: number | null = null;
+}
+
 export class AirHockey extends PixiApplicationBase {
   private background = new Sprite();
   private friction = 0.01;
 
-  private handle1 = new Sprite();
-  private handle1PointerId: number | null = null;
+  private handle1 = new Handle();
   private handle1Velocity = new Vec2();
   private handle1PositionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
 
-  private handle2 = new Sprite();
-  private handle2PointerId: number | null = null;
+  private handle2 = new Handle();
   private handle2Velocity = new Vec2();
   private handle2PositionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
 
@@ -45,8 +47,8 @@ export class AirHockey extends PixiApplicationBase {
     this.app.loader.load((_, resources) => {
       this.onUpdate();
       this.background = new Sprite(resources[background_image].texture);
-      this.handle1 = new Sprite(resources[handle_image].texture);
-      this.handle2 = new Sprite(resources[handle_image].texture);
+      this.handle1 = new Handle(resources[handle_image].texture);
+      this.handle2 = new Handle(resources[handle_image].texture);
       this.init();
     });
   }
@@ -54,47 +56,18 @@ export class AirHockey extends PixiApplicationBase {
   protected start(): void {
     // Initialize game objects
     this.background.anchor.set(0.5);
-    this.handle1.anchor.set(0.5);
-    this.handle1.position.set(0, 185 * 2);
-    this.handle2.anchor.set(0.5);
-    this.handle2.position.set(0, -185 * 2);
+    this.initializeHandle(this.handle1, new Vec2(0, 185 * 2));
+    this.initializeHandle(this.handle2, new Vec2(0, -185 * 2));
 
     this.app.stage.addChild(this.background);
     this.background.addChild(this.handle1);
     this.background.addChild(this.handle2);
     this.resize();
-
-    // Initialize handle1 interactivity
-    this.handle1.interactive = true;
-    this.handle1.addListener("pointerdown", (e: InteractionEvent) => { this.handle1PointerId = e.data.pointerId; });
-    this.handle1.addListener("pointerup", () => { this.handle1PointerId = null; });
-    this.handle1.addListener("pointermove", (e: InteractionEvent) => {
-      if (e.data.pointerId === this.handle1PointerId) {
-        const position = new Vec2(e.data.getLocalPosition(this.background));
-        const clampedPosition = position.rectangleClamp(MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
-        this.handle1.position.copyFrom(clampedPosition);
-      }
-    });
-    this.background.interactive = true;
-    this.background.addListener("click", (e: InteractionEvent) => {
-      console.log(e.data.getLocalPosition(this.background));
-    });
-
-    // Initialize handle2 interactivity
-    // this.handle2.interactive = true;
-    // this.handle2.addListener("pointerdown", (e: InteractionEvent) => { this.handle2PointerId = e.data.pointerId; });
-    // this.handle2.addListener("pointerup", () => { this.handle2PointerId = null; });
-    // this.handle2.addListener("pointermove", (e: InteractionEvent) => {
-    //   if (e.data.pointerId === this.handle2PointerId) {
-    //     const position = e.data.getLocalPosition(this.background);
-    //     this.handle2.position.copyFrom(position);
-    //   }
-    // });
   }
 
   protected update(): void {
     // Calculate handle1 instant velocity when it is held
-    if (this.handle1PointerId !== null) {
+    if (this.handle1.pointerId !== null) {
       const [_, p1] = this.handle1PositionMeasurments;
       const p2 = new Vec2(this.handle1.position);
       this.handle1Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
@@ -150,7 +123,7 @@ export class AirHockey extends PixiApplicationBase {
     }
 
     // Calculate handle2 instant velocity when it is held
-    if (this.handle2PointerId !== null) {
+    if (this.handle2.pointerId !== null) {
       const [_, p1] = this.handle2PositionMeasurments;
       const p2 = new Vec2(this.handle2.position);
       this.handle2Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
@@ -218,5 +191,21 @@ export class AirHockey extends PixiApplicationBase {
     this.background.position.set(w / 2, h / 2);
     this.background.height = height;
     this.background.width = width;
+  }
+
+  private initializeHandle(handle: Handle, startingPosition: Vec2) {
+    handle.anchor.set(0.5);
+    handle.position.set(startingPosition.x, startingPosition.y);
+
+    handle.interactive = true;
+    handle.addListener("pointerdown", (e: InteractionEvent) => { handle.pointerId = e.data.pointerId; });
+    handle.addListener("pointerup", () => { handle.pointerId = null; });
+    handle.addListener("pointermove", (e: InteractionEvent) => {
+      if (e.data.pointerId === handle.pointerId) {
+        const position = new Vec2(e.data.getLocalPosition(this.background));
+        const clampedPosition = position.rectangleClamp(MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
+        handle.position.copyFrom(clampedPosition);
+      }
+    });
   }
 }

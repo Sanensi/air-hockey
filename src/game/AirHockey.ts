@@ -5,19 +5,20 @@ import { Vec2 } from "../libraries/Vec2";
 import background_image from "./assets/background.png";
 import handle_image from "./assets/handle.png";
 import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Collision";
-import { fullyElasticCollision } from "./Reaction";
+import { fullyElasticCollision, IMMOVABLE_MASS } from "./Reaction";
 
 type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
 
 const OUTER_SIZE = new Vec2(1012, 1594);
 
 const INNER_SIZE = new Vec2(930, 1521);
-const INNER_TOP_LEFT = new Vec2(42, 37);
+const INNER_TOP_LEFT = new Vec2(42, 37).substract(OUTER_SIZE.divide(2));
 const INNER_BOTTOM_RIGHT = INNER_TOP_LEFT.add(INNER_SIZE);
+const INNER_BOUNDS = new Rectangle(INNER_TOP_LEFT.x, INNER_TOP_LEFT.y, INNER_SIZE.x, INNER_SIZE.y);
 
 const HANDLE_RADIUS = 185 / 2;
-const MIN_HANDLE_POSITION = INNER_TOP_LEFT.add(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS)).substract(OUTER_SIZE.divide(2));
-const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS)).substract(OUTER_SIZE.divide(2));
+const MIN_HANDLE_POSITION = INNER_TOP_LEFT.add(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
+const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
 
 const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 7;
 
@@ -25,6 +26,8 @@ class Handle extends Sprite {
   public pointerId: number | null = null;
   public velocity = new Vec2();
   public positionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
+  public get held() { return this.pointerId !== null; }
+  public get mass() { return this.held ? IMMOVABLE_MASS : 1; }
 }
 
 export class AirHockey extends PixiApplicationBase {
@@ -98,20 +101,15 @@ export class AirHockey extends PixiApplicationBase {
   }
 
   private updateHandle(handle: Handle, oppositeHandle: Handle) {
-    // Calculate handle instant velocity when it is held
-    if (handle.pointerId !== null) {
+    if (handle.held) {
       this.measureHandleInstantVelocity(handle);
     }
-    // Calculate handle position and velocity when it is not held
     else {
       const previousPosition = new Vec2(handle.position);
       const nextPosition = previousPosition.add(handle.velocity.scale(this.app.ticker.deltaMS));
-
       const handleCollider = new Circle(nextPosition.x, nextPosition.y, handle.texture.width / 2);
-      const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
-      const bounds = new Rectangle(topLeft.x, topLeft.y, INNER_SIZE.x, INNER_SIZE.y);
 
-      switch (circleToBoundsCollisionTest(handleCollider, bounds)) {
+      switch (circleToBoundsCollisionTest(handleCollider, INNER_BOUNDS)) {
         case "no-collision":
           handle.position.copyFrom(nextPosition);
           break;
@@ -136,8 +134,8 @@ export class AirHockey extends PixiApplicationBase {
       if (circleToCircleCollisionTest(handleCollider, oppositeHandleCollider) === "collision") {
         const p1 = new Vec2(handle);
         const p2 = new Vec2(oppositeHandle);
-        const v1_prime = fullyElasticCollision(1, 1, handle.velocity, oppositeHandle.velocity, p1, p2);
-        const v2_prime = fullyElasticCollision(1, 1, oppositeHandle.velocity, handle.velocity, p2, p1);
+        const v1_prime = fullyElasticCollision(handle.mass, oppositeHandle.mass, handle.velocity, oppositeHandle.velocity, p1, p2);
+        const v2_prime = fullyElasticCollision(oppositeHandle.mass, handle.mass, oppositeHandle.velocity, handle.velocity, p2, p1);
         handle.velocity = v1_prime;
         oppositeHandle.velocity = v2_prime;
 

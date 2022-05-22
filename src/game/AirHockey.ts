@@ -23,6 +23,8 @@ const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 7;
 
 class Handle extends Sprite {
   public pointerId: number | null = null;
+  public velocity = new Vec2();
+  public positionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
 }
 
 export class AirHockey extends PixiApplicationBase {
@@ -30,12 +32,7 @@ export class AirHockey extends PixiApplicationBase {
   private friction = 0.01;
 
   private handle1 = new Handle();
-  private handle1Velocity = new Vec2();
-  private handle1PositionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
-
   private handle2 = new Handle();
-  private handle2Velocity = new Vec2();
-  private handle2PositionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
 
   public onUpdate = () => { /** noop */ }
 
@@ -68,16 +65,13 @@ export class AirHockey extends PixiApplicationBase {
   protected update(): void {
     // Calculate handle1 instant velocity when it is held
     if (this.handle1.pointerId !== null) {
-      const [_, p1] = this.handle1PositionMeasurments;
-      const p2 = new Vec2(this.handle1.position);
-      this.handle1Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
-      this.handle1PositionMeasurments = [p1, p2];
+      this.measureHandleInstantVelocity(this.handle1);
     }
     // Calculate handle1 position and velocity when it is not held
     else {
       const previous = new Vec2(this.handle1.position);
       const previous2 = new Vec2(this.handle2.position);
-      const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+      const next = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
 
       const handle1 = new Circle(next.x, next.y, this.handle1.texture.width / 2);
       const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
@@ -89,15 +83,15 @@ export class AirHockey extends PixiApplicationBase {
           break;
         case "left":
         case "right": {
-          this.handle1Velocity = new Vec2(-this.handle1Velocity.x, this.handle1Velocity.y);
-          const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+          this.handle1.velocity = new Vec2(-this.handle1.velocity.x, this.handle1.velocity.y);
+          const next = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
           this.handle1.position.copyFrom(next);
           break;
         }
         case "top":
         case "bottom": {
-          this.handle1Velocity = new Vec2(this.handle1Velocity.x, -this.handle1Velocity.y);
-          const next = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+          this.handle1.velocity = new Vec2(this.handle1.velocity.x, -this.handle1.velocity.y);
+          const next = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
           this.handle1.position.copyFrom(next);
           break;
         }
@@ -107,33 +101,30 @@ export class AirHockey extends PixiApplicationBase {
       if (circleToCircleCollisionTest(handle1, handle2) === "collision") {
         const p1 = new Vec2(this.handle1);
         const p2 = new Vec2(this.handle2);
-        const v1_prime = fullyElasticCollision(1, 1, this.handle1Velocity, this.handle2Velocity, p1, p2);
-        const v2_prime = fullyElasticCollision(1, 1, this.handle2Velocity, this.handle1Velocity, p2, p1);
-        this.handle1Velocity = v1_prime;
-        this.handle2Velocity = v2_prime;
+        const v1_prime = fullyElasticCollision(1, 1, this.handle1.velocity, this.handle2.velocity, p1, p2);
+        const v2_prime = fullyElasticCollision(1, 1, this.handle2.velocity, this.handle1.velocity, p2, p1);
+        this.handle1.velocity = v1_prime;
+        this.handle2.velocity = v2_prime;
 
-        const next1 = previous.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
-        const next2 = previous2.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+        const next1 = previous.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
+        const next2 = previous2.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
         this.handle1.position.copyFrom(next1);
         this.handle2.position.copyFrom(next2);
       }
 
       // Apply friction
-      this.handle1Velocity = (this.handle1Velocity.length() > 0.001) ? this.handle1Velocity.scale(1 - this.friction) : Vec2.ZERO;
+      this.handle1.velocity = (this.handle1.velocity.length() > 0.001) ? this.handle1.velocity.scale(1 - this.friction) : Vec2.ZERO;
     }
 
     // Calculate handle2 instant velocity when it is held
     if (this.handle2.pointerId !== null) {
-      const [_, p1] = this.handle2PositionMeasurments;
-      const p2 = new Vec2(this.handle2.position);
-      this.handle2Velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
-      this.handle2PositionMeasurments = [p1, p2];
+      this.measureHandleInstantVelocity(this.handle2);
     }
     // Calculate handle2 position and velocity when it is not held
     else {
       const previous = new Vec2(this.handle2.position);
       const previous2 = new Vec2(this.handle1.position);
-      const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+      const next = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
 
       const handle2 = new Circle(next.x, next.y, this.handle2.texture.width / 2);
       const topLeft = INNER_TOP_LEFT.substract(OUTER_SIZE.divide(2));
@@ -145,15 +136,15 @@ export class AirHockey extends PixiApplicationBase {
           break;
         case "left":
         case "right": {
-          this.handle2Velocity = new Vec2(-this.handle2Velocity.x, this.handle2Velocity.y);
-          const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+          this.handle2.velocity = new Vec2(-this.handle2.velocity.x, this.handle2.velocity.y);
+          const next = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
           this.handle2.position.copyFrom(next);
           break;
         }
         case "top":
         case "bottom": {
-          this.handle2Velocity = new Vec2(this.handle2Velocity.x, -this.handle2Velocity.y);
-          const next = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
+          this.handle2.velocity = new Vec2(this.handle2.velocity.x, -this.handle2.velocity.y);
+          const next = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
           this.handle2.position.copyFrom(next);
           break;
         }
@@ -163,19 +154,19 @@ export class AirHockey extends PixiApplicationBase {
       if (circleToCircleCollisionTest(handle2, handle1) === "collision") {
         const p1 = new Vec2(this.handle2);
         const p2 = new Vec2(this.handle1);
-        const v1_prime = fullyElasticCollision(1, 1, this.handle2Velocity, this.handle1Velocity, p1, p2);
-        const v2_prime = fullyElasticCollision(1, 1, this.handle1Velocity, this.handle2Velocity, p2, p1);
-        this.handle2Velocity = v1_prime;
-        this.handle1Velocity = v2_prime;
+        const v1_prime = fullyElasticCollision(1, 1, this.handle2.velocity, this.handle1.velocity, p1, p2);
+        const v2_prime = fullyElasticCollision(1, 1, this.handle1.velocity, this.handle2.velocity, p2, p1);
+        this.handle2.velocity = v1_prime;
+        this.handle1.velocity = v2_prime;
 
-        const next1 = previous.add(this.handle2Velocity.scale(this.app.ticker.deltaMS));
-        const next2 = previous2.add(this.handle1Velocity.scale(this.app.ticker.deltaMS));
+        const next1 = previous.add(this.handle2.velocity.scale(this.app.ticker.deltaMS));
+        const next2 = previous2.add(this.handle1.velocity.scale(this.app.ticker.deltaMS));
         this.handle2.position.copyFrom(next1);
         this.handle1.position.copyFrom(next2);
       }
 
       // Apply friction
-      this.handle2Velocity = (this.handle2Velocity.length() > 0.001) ? this.handle2Velocity.scale(1 - this.friction) : Vec2.ZERO;
+      this.handle2.velocity = (this.handle2.velocity.length() > 0.001) ? this.handle2.velocity.scale(1 - this.friction) : Vec2.ZERO;
     }
   }
 
@@ -207,5 +198,12 @@ export class AirHockey extends PixiApplicationBase {
         handle.position.copyFrom(clampedPosition);
       }
     });
+  }
+
+  private measureHandleInstantVelocity(handle: Handle) {
+    const [_, p1] = handle.positionMeasurments;
+    const p2 = new Vec2(handle.position);
+    handle.velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
+    handle.positionMeasurments = [p1, p2];
   }
 }

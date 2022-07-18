@@ -83,9 +83,9 @@ export class Vec2 {
     return Math.sqrt(this.lengthSquared());
   }
 
-  public normalize() {
+  public normalize(epsilon = 0.001) {
     const length = this.length();
-    return length <= 0.001 ? Vec2.ZERO : this.divide(length);
+    return length <= epsilon ? Vec2.ZERO : this.divide(length);
   }
 
   public rectangleClamp(min: number, max: number): Vec2
@@ -100,6 +100,12 @@ export class Vec2 {
       console.assert(!(difference.x < 0 || difference.y < 0), "Can't clamp when min > max", min, max, difference);
       return new Vec2(Math.min(Math.max(this.x, min.x), max.x), Math.min(Math.max(this.y, min.y), max.y));
     }
+  }
+
+  public circularClamp(radius: number) {
+    if (this.length() <= radius) return this;
+
+    return this.normalize().scale(radius);
   }
 
   public static angleBetween(a: Vec2, b: Vec2) {

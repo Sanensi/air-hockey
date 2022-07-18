@@ -33,6 +33,13 @@ const testCases: TestCase[] = [
     expected_v2_prime: Vec2.ZERO
   },
   {
+    name: "Given a moving immovable object",
+    obj1: { m: IMMOVABLE_MASS, v: new Vec2(1, 0), x: Vec2.ZERO },
+    obj2: { m: 1, v: Vec2.ZERO, x: new Vec2(1, 0) },
+    expected_v1_prime: new Vec2(1, 0),
+    expected_v2_prime: new Vec2(2, 0)
+  },
+  {
     name: "Given an object comming in on an immovable object at an angle",
     obj1: { m: 1, v: new Vec2(1, 1), x: Vec2.ZERO },
     obj2: { m: IMMOVABLE_MASS, v: Vec2.ZERO, x: new Vec2(1, 0) },

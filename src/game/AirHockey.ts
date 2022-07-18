@@ -7,7 +7,6 @@ import handle_image from "./assets/handle.png";
 import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Collision";
 import { fullyElasticCollision, IMMOVABLE_MASS } from "./Reaction";
 
-type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
 
 const OUTER_SIZE = new Vec2(1012, 1594);
 
@@ -20,12 +19,18 @@ const HANDLE_RADIUS = 185 / 2;
 const MIN_HANDLE_POSITION = INNER_TOP_LEFT.add(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
 const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
 
-const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 7;
+type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
+const makeBuffer = <T, Size extends number>(size: Size, defaultValue: T) => Array.from({ length: size }, () => defaultValue) as Buffer<T, Size>;
+
+const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 2;
+const ROLLING_AVERAGE_WINDOW_LENGHT = 3;
+const MAX_VELOCITY_LENGTH = 1;
 
 class Handle extends Sprite {
   public pointerId: number | null = null;
   public velocity = new Vec2();
-  public positionMeasurments: Buffer<Vec2, 2> = [Vec2.ZERO, Vec2.ZERO];
+  public positionMeasurments = makeBuffer(2, Vec2.ZERO);
+  public velocityRollingWindow = makeBuffer(ROLLING_AVERAGE_WINDOW_LENGHT, Vec2.ZERO)
   public get held() { return this.pointerId !== null; }
   public get mass() { return this.held ? IMMOVABLE_MASS : 1; }
 }
@@ -58,6 +63,14 @@ export class AirHockey extends PixiApplicationBase {
     this.background.anchor.set(0.5);
     this.initializeHandle(this.handle1, new Vec2(0, 185 * 2));
     this.initializeHandle(this.handle2, new Vec2(0, -185 * 2));
+    this.handle1.name = "handle-1";
+    this.handle2.name = "handle-2";
+
+    this.background.interactive = true;
+    this.background.addListener("pointerup", (e: InteractionEvent) => {
+      if (this.handle1.pointerId === e.data.pointerId) this.handle1.pointerId = null;
+      if (this.handle2.pointerId === e.data.pointerId) this.handle2.pointerId = null;
+    });
 
     this.app.stage.addChild(this.background);
     this.background.addChild(this.handle1);
@@ -89,8 +102,11 @@ export class AirHockey extends PixiApplicationBase {
     handle.position.set(startingPosition.x, startingPosition.y);
 
     handle.interactive = true;
-    handle.addListener("pointerdown", (e: InteractionEvent) => { handle.pointerId = e.data.pointerId; });
-    handle.addListener("pointerup", () => { handle.pointerId = null; });
+    handle.addListener("pointerdown", (e: InteractionEvent) => {
+      handle.pointerId = e.data.pointerId;
+      handle.velocityRollingWindow = makeBuffer(ROLLING_AVERAGE_WINDOW_LENGHT, Vec2.ZERO);
+      handle.velocity = Vec2.ZERO;
+    });
     handle.addListener("pointermove", (e: InteractionEvent) => {
       if (e.data.pointerId === handle.pointerId) {
         const position = new Vec2(e.data.getLocalPosition(this.background));
@@ -145,15 +161,34 @@ export class AirHockey extends PixiApplicationBase {
         oppositeHandle.position.copyFrom(oppositeNextPosition);
       }
 
+      {
+        const handleCollider = new Circle(handle.x, handle.y, handle.texture.width / 2);
+        const oppositeHandleCollider = new Circle(oppositeHandle.x, oppositeHandle.y, oppositeHandle.width / 2);
+        if (circleToCircleCollisionTest(handleCollider, oppositeHandleCollider) === "collision") {
+          const p1 = new Vec2(handle);
+          const p2 = new Vec2(oppositeHandle);
+          const delta = p2.substract(p1);
+          const depth = handleCollider.radius + oppositeHandleCollider.radius - delta.length();
+
+          const nextPosition = p1.add(delta.normalize().scale(-1 * depth));
+          handle.position.copyFrom(nextPosition);
+        }
+      }
+
       this.applyFriction(handle, this.friction);
     }
   }
 
   private measureHandleInstantVelocity(handle: Handle) {
-    const [_, p1] = handle.positionMeasurments;
+    const [_1, p1] = handle.positionMeasurments;
     const p2 = new Vec2(handle.position);
-    handle.velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
     handle.positionMeasurments = [p1, p2];
+
+    const [_2, ...rest] = handle.velocityRollingWindow;
+    const vn = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
+    handle.velocityRollingWindow = [...rest, vn];
+    const sum = handle.velocityRollingWindow.reduce((partialSum, v) => partialSum.add(v), Vec2.ZERO);
+    handle.velocity = sum.divide(ROLLING_AVERAGE_WINDOW_LENGHT).circularClamp(MAX_VELOCITY_LENGTH);
   }
 
   private applyFriction(handle: Handle, friction: number) {

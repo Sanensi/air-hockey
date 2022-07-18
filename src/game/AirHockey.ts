@@ -118,7 +118,9 @@ export class AirHockey extends PixiApplicationBase {
 
   private updateHandle(handle: Handle, oppositeHandle: Handle) {
     if (handle.held) {
-      this.measureHandleInstantVelocity(handle);
+      this.updateHandleInstantVelocity(handle);
+      this.applyRollingAverageToInstantVelocity(handle);
+      handle.velocity = handle.velocity.circularClamp(MAX_VELOCITY_LENGTH);
     }
     else {
       const previousPosition = new Vec2(handle.position);
@@ -179,16 +181,18 @@ export class AirHockey extends PixiApplicationBase {
     }
   }
 
-  private measureHandleInstantVelocity(handle: Handle) {
-    const [_1, p1] = handle.positionMeasurments;
+  private updateHandleInstantVelocity(handle: Handle) {
+    const [_, p1] = handle.positionMeasurments;
     const p2 = new Vec2(handle.position);
     handle.positionMeasurments = [p1, p2];
+    handle.velocity = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
+  }
 
-    const [_2, ...rest] = handle.velocityRollingWindow;
-    const vn = p2.substract(p1).divide(this.app.ticker.deltaMS * ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER);
-    handle.velocityRollingWindow = [...rest, vn];
+  private applyRollingAverageToInstantVelocity(handle: Handle) {
+    const [_, ...rest] = handle.velocityRollingWindow;
+    handle.velocityRollingWindow = [...rest, handle.velocity];
     const sum = handle.velocityRollingWindow.reduce((partialSum, v) => partialSum.add(v), Vec2.ZERO);
-    handle.velocity = sum.divide(ROLLING_AVERAGE_WINDOW_LENGHT).circularClamp(MAX_VELOCITY_LENGTH);
+    handle.velocity = sum.divide(handle.velocityRollingWindow.length);
   }
 
   private applyFriction(handle: Handle, friction: number) {

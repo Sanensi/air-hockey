@@ -119,8 +119,6 @@ export class AirHockey extends PixiApplicationBase {
   private updateHandle(handle: Handle, oppositeHandle: Handle) {
     if (handle.held) {
       this.updateHandleInstantVelocity(handle);
-      this.applyRollingAverageToInstantVelocity(handle);
-      handle.velocity = handle.velocity.circularClamp(MAX_HELD_VELOCITY_LENGTH);
     }
     else {
       this.applyFreeBodyPhysics(handle, oppositeHandle);
@@ -128,6 +126,12 @@ export class AirHockey extends PixiApplicationBase {
   }
 
   private updateHandleInstantVelocity(handle: Handle) {
+    this.measureHandleInstantVelocity(handle);
+    this.applyRollingAverageToInstantVelocity(handle);
+    this.limitHandleVelocityToMaxHeldVelocity(handle);
+  }
+
+  private measureHandleInstantVelocity(handle: Handle) {
     const [_, p1] = handle.positionMeasurments;
     const p2 = new Vec2(handle.position);
     handle.positionMeasurments = [p1, p2];
@@ -141,10 +145,15 @@ export class AirHockey extends PixiApplicationBase {
     handle.velocity = sum.divide(handle.velocityRollingWindow.length);
   }
 
+  private limitHandleVelocityToMaxHeldVelocity(handle: Handle) {
+    handle.velocity = handle.velocity.circularClamp(MAX_HELD_VELOCITY_LENGTH);
+  }
+
   private applyFreeBodyPhysics(handle: Handle, oppositeHandle: Handle) {
     this.reactToBoundCollision(handle);
     this.moveHandle(handle);
     this.reactToOppositeHandleCollision(handle, oppositeHandle);
+    this.resolveOverlappingHandles(handle, oppositeHandle);
     this.applyFriction(handle, this.friction);
   }
 
@@ -193,19 +202,19 @@ export class AirHockey extends PixiApplicationBase {
       handle.position.copyFrom(nextPosition);
       oppositeHandle.position.copyFrom(oppositeNextPosition);
     }
+  }
 
-    {
-      const handleCollider = new Circle(handle.x, handle.y, handle.texture.width / 2);
-      const oppositeHandleCollider = new Circle(oppositeHandle.x, oppositeHandle.y, oppositeHandle.texture.width / 2);
-      if (circleToCircleCollisionTest(handleCollider, oppositeHandleCollider) === "collision") {
-        const p1 = new Vec2(handle);
-        const p2 = new Vec2(oppositeHandle);
-        const delta = p2.substract(p1);
-        const depth = handleCollider.radius + oppositeHandleCollider.radius - delta.length();
+  private resolveOverlappingHandles(handle: Handle, oppositeHandle: Handle) {
+    const handleCollider = new Circle(handle.x, handle.y, handle.texture.width / 2);
+    const oppositeHandleCollider = new Circle(oppositeHandle.x, oppositeHandle.y, oppositeHandle.texture.width / 2);
+    if (circleToCircleCollisionTest(handleCollider, oppositeHandleCollider) === "collision") {
+      const p1 = new Vec2(handle);
+      const p2 = new Vec2(oppositeHandle);
+      const delta = p2.substract(p1);
+      const depth = handleCollider.radius + oppositeHandleCollider.radius - delta.length();
 
-        const nextPosition = p1.add(delta.normalize().scale(-1 * depth));
-        handle.position.copyFrom(nextPosition);
-      }
+      const nextPosition = p1.add(delta.normalize().scale(-1 * depth));
+      handle.position.copyFrom(nextPosition);
     }
   }
 

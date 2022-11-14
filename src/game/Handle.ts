@@ -1,4 +1,4 @@
-import { InteractionEvent, Sprite } from "pixi.js";
+import { DisplayObject, InteractionEvent, Sprite } from "pixi.js";
 import { Vec2 } from "../libraries/Vec2";
 import { IMMOVABLE_MASS } from "./Reaction";
 
@@ -9,6 +9,7 @@ const ROLLING_AVERAGE_WINDOW_LENGHT = 3;
 
 type Props = {
   name: string;
+  parent: DisplayObject;
   startingPosition: Vec2;
   minHandlePosition: Vec2;
   maxHandlePosition: Vec2;
@@ -26,7 +27,7 @@ export class Handle extends Sprite {
   public get held() { return this.pointerId !== null; }
   public get mass() { return this.held ? IMMOVABLE_MASS : 1; }
 
-  public constructor({ name , startingPosition, minHandlePosition, maxHandlePosition }: Props) {
+  public constructor({ name, parent, startingPosition, minHandlePosition, maxHandlePosition }: Props) {
     super();
 
     this.MIN_HANDLE_POSITION = minHandlePosition;
@@ -38,12 +39,17 @@ export class Handle extends Sprite {
     this.interactive = true;
     this.addListener("pointerdown", this.acquirePointer);
     this.addListener("pointermove", this.moveIfHeld);
+    parent.addListener("pointerup", this.releasePointer);
   }
 
   private acquirePointer = (e: InteractionEvent) => {
     this.pointerId = e.data.pointerId;
     this.velocityRollingWindow = makeBuffer(ROLLING_AVERAGE_WINDOW_LENGHT, Vec2.ZERO);
     this.velocity = Vec2.ZERO;
+  }
+
+  private releasePointer = (e: InteractionEvent) => {
+    if (this.pointerId === e.data.pointerId) this.pointerId = null;
   }
 
   private moveIfHeld = (e: InteractionEvent) => {

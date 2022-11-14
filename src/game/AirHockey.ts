@@ -1,4 +1,4 @@
-import { Circle, InteractionEvent, Rectangle, Sprite } from "pixi.js";
+import { Circle, Rectangle, Sprite } from "pixi.js";
 import { PixiApplicationBase } from "../libraries/PixiApplicationBase";
 import { Vec2 } from "../libraries/Vec2";
 
@@ -29,6 +29,7 @@ export class AirHockey extends PixiApplicationBase {
 
   private handle1 = new Handle({ 
     name: "handle-1",
+    parent: this.background,
     startingPosition: new Vec2(0, 185 * 2),
     minHandlePosition: MIN_HANDLE_POSITION,
     maxHandlePosition: MAX_HANDLE_POSITION,
@@ -36,6 +37,7 @@ export class AirHockey extends PixiApplicationBase {
 
   private handle2 = new Handle({ 
     name: "handle-2",
+    parent: this.background,
     startingPosition: new Vec2(0, -185 * 2),
     minHandlePosition: MIN_HANDLE_POSITION,
     maxHandlePosition: MAX_HANDLE_POSITION,
@@ -65,15 +67,9 @@ export class AirHockey extends PixiApplicationBase {
 
   protected start(): void {
     // Initialize game objects
+    this.app.stage.addChild(this.background);
     this.background.anchor.set(0.5);
     this.background.interactive = true;
-    this.background.addListener("pointerup", (e: InteractionEvent) => {
-      // Release pointer
-      if (this.handle1.pointerId === e.data.pointerId) this.handle1.pointerId = null;
-      if (this.handle2.pointerId === e.data.pointerId) this.handle2.pointerId = null;
-    });
-
-    this.app.stage.addChild(this.background);
     this.background.addChild(this.handle1);
     this.background.addChild(this.handle2);
     this.resize();

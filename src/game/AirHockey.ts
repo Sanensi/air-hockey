@@ -5,7 +5,8 @@ import { Vec2 } from "../libraries/Vec2";
 import background_image from "./assets/background.png";
 import handle_image from "./assets/handle.png";
 import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Collision";
-import { fullyElasticCollision, IMMOVABLE_MASS } from "./Reaction";
+import { Handle } from "./Handle";
+import { fullyElasticCollision } from "./Reaction";
 
 
 const OUTER_SIZE = new Vec2(1012, 1594);
@@ -19,21 +20,9 @@ const HANDLE_RADIUS = 185 / 2;
 const MIN_HANDLE_POSITION = INNER_TOP_LEFT.add(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
 const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS, HANDLE_RADIUS));
 
-type Buffer<T, Size extends number, Acc extends T[] = []> = Acc["length"] extends Size ? Acc : Buffer<T, Size, [...Acc, T]>
-const makeBuffer = <T, Size extends number>(size: Size, defaultValue: T) => Array.from({ length: size }, () => defaultValue) as Buffer<T, Size>;
-
 const ESCAPE_VELOCITY_REDUCER_MAGIC_NUMBER = 2;
-const ROLLING_AVERAGE_WINDOW_LENGHT = 3;
 const MAX_HELD_VELOCITY_LENGTH = 1;
-
-class Handle extends Sprite {
-  public pointerId: number | null = null;
-  public velocity = new Vec2();
-  public positionMeasurments = makeBuffer(2, Vec2.ZERO);
-  public velocityRollingWindow = makeBuffer(ROLLING_AVERAGE_WINDOW_LENGHT, Vec2.ZERO)
-  public get held() { return this.pointerId !== null; }
-  public get mass() { return this.held ? IMMOVABLE_MASS : 1; }
-}
+const MAX_VELOCITY_LENGHT = 10;
 
 export class AirHockey extends PixiApplicationBase {
   private background = new Sprite();
@@ -61,13 +50,14 @@ export class AirHockey extends PixiApplicationBase {
   protected start(): void {
     // Initialize game objects
     this.background.anchor.set(0.5);
-    this.initializeHandle(this.handle1, new Vec2(0, 185 * 2));
-    this.initializeHandle(this.handle2, new Vec2(0, -185 * 2));
+    this.handle1.initializeHandle(this.background, new Vec2(0, 185 * 2), MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
+    this.handle2.initializeHandle(this.background, new Vec2(0, -185 * 2), MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
     this.handle1.name = "handle-1";
     this.handle2.name = "handle-2";
 
     this.background.interactive = true;
     this.background.addListener("pointerup", (e: InteractionEvent) => {
+      // Release pointer
       if (this.handle1.pointerId === e.data.pointerId) this.handle1.pointerId = null;
       if (this.handle2.pointerId === e.data.pointerId) this.handle2.pointerId = null;
     });
@@ -97,25 +87,6 @@ export class AirHockey extends PixiApplicationBase {
     this.background.width = width;
   }
 
-  private initializeHandle(handle: Handle, startingPosition: Vec2) {
-    handle.anchor.set(0.5);
-    handle.position.set(startingPosition.x, startingPosition.y);
-
-    handle.interactive = true;
-    handle.addListener("pointerdown", (e: InteractionEvent) => {
-      handle.pointerId = e.data.pointerId;
-      handle.velocityRollingWindow = makeBuffer(ROLLING_AVERAGE_WINDOW_LENGHT, Vec2.ZERO);
-      handle.velocity = Vec2.ZERO;
-    });
-    handle.addListener("pointermove", (e: InteractionEvent) => {
-      if (e.data.pointerId === handle.pointerId) {
-        const position = new Vec2(e.data.getLocalPosition(this.background));
-        const clampedPosition = position.rectangleClamp(MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
-        handle.position.copyFrom(clampedPosition);
-      }
-    });
-  }
-
   private updateHandle(handle: Handle, oppositeHandle: Handle) {
     if (handle.held) {
       this.updateHandleInstantVelocity(handle);
@@ -128,7 +99,7 @@ export class AirHockey extends PixiApplicationBase {
   private updateHandleInstantVelocity(handle: Handle) {
     this.measureHandleInstantVelocity(handle);
     this.applyRollingAverageToInstantVelocity(handle);
-    this.limitHandleVelocityToMaxHeldVelocity(handle);
+    this.limitHandleVelocity(handle, MAX_HELD_VELOCITY_LENGTH);
   }
 
   private measureHandleInstantVelocity(handle: Handle) {
@@ -145,8 +116,8 @@ export class AirHockey extends PixiApplicationBase {
     handle.velocity = sum.divide(handle.velocityRollingWindow.length);
   }
 
-  private limitHandleVelocityToMaxHeldVelocity(handle: Handle) {
-    handle.velocity = handle.velocity.circularClamp(MAX_HELD_VELOCITY_LENGTH);
+  private limitHandleVelocity(handle: Handle, velocityLimit: number) {
+    handle.velocity = handle.velocity.circularClamp(velocityLimit);
   }
 
   private applyFreeBodyPhysics(handle: Handle, oppositeHandle: Handle) {
@@ -154,6 +125,7 @@ export class AirHockey extends PixiApplicationBase {
     this.moveHandle(handle);
     this.reactToOppositeHandleCollision(handle, oppositeHandle);
     this.resolveOverlappingHandles(handle, oppositeHandle);
+    this.limitHandleVelocity(handle, MAX_VELOCITY_LENGHT);
     this.applyFriction(handle, this.friction);
   }
 

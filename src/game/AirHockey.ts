@@ -8,7 +8,6 @@ import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Coll
 import { Handle } from "./Handle";
 import { fullyElasticCollision } from "./Reaction";
 
-
 const OUTER_SIZE = new Vec2(1012, 1594);
 
 const INNER_SIZE = new Vec2(930, 1521);
@@ -28,8 +27,19 @@ export class AirHockey extends PixiApplicationBase {
   private background = new Sprite();
   private friction = 0.01;
 
-  private handle1 = new Handle();
-  private handle2 = new Handle();
+  private handle1 = new Handle({ 
+    name: "handle-1",
+    startingPosition: new Vec2(0, 185 * 2),
+    minHandlePosition: MIN_HANDLE_POSITION,
+    maxHandlePosition: MAX_HANDLE_POSITION,
+  });
+
+  private handle2 = new Handle({ 
+    name: "handle-2",
+    startingPosition: new Vec2(0, -185 * 2),
+    minHandlePosition: MIN_HANDLE_POSITION,
+    maxHandlePosition: MAX_HANDLE_POSITION,
+  });
 
   public onUpdate = () => { /** noop */ }
 
@@ -40,9 +50,15 @@ export class AirHockey extends PixiApplicationBase {
     this.app.loader.add([background_image, handle_image]);
     this.app.loader.load((_, resources) => {
       this.onUpdate();
-      this.background = new Sprite(resources[background_image].texture);
-      this.handle1 = new Handle(resources[handle_image].texture);
-      this.handle2 = new Handle(resources[handle_image].texture);
+      const backgroundTexture = resources[background_image].texture;
+      const handleTexture = resources[handle_image].texture;
+
+      assert(backgroundTexture !== undefined);
+      assert(handleTexture !== undefined);
+
+      this.background.texture = backgroundTexture;
+      this.handle1.texture = handleTexture;
+      this.handle2.texture = handleTexture;
       this.init();
     });
   }
@@ -50,11 +66,6 @@ export class AirHockey extends PixiApplicationBase {
   protected start(): void {
     // Initialize game objects
     this.background.anchor.set(0.5);
-    this.handle1.initializeHandle(this.background, new Vec2(0, 185 * 2), MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
-    this.handle2.initializeHandle(this.background, new Vec2(0, -185 * 2), MIN_HANDLE_POSITION, MAX_HANDLE_POSITION);
-    this.handle1.name = "handle-1";
-    this.handle2.name = "handle-2";
-
     this.background.interactive = true;
     this.background.addListener("pointerup", (e: InteractionEvent) => {
       // Release pointer
@@ -193,4 +204,8 @@ export class AirHockey extends PixiApplicationBase {
   private applyFriction(handle: Handle, friction: number) {
     handle.velocity = (handle.velocity.length() > 0.001) ? handle.velocity.scale(1 - friction) : Vec2.ZERO;
   }
+}
+
+function assert(value: unknown, message?: string | Error): asserts value {
+  if (!value) throw message;
 }

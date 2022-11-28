@@ -1,5 +1,6 @@
 import { Circle, DisplayObject, InteractionEvent, Rectangle, Sprite } from "pixi.js";
 import { Vec2 } from "../libraries/Vec2";
+import { assert } from "./Assertion";
 import { circleToBoundsCollisionTest, circleToCircleCollisionTest } from "./Collision";
 import { fullyElasticCollision, IMMOVABLE_MASS } from "./Reaction";
 
@@ -27,12 +28,22 @@ export class Handle extends Sprite {
   private readonly BOUNDING_RECTANGLE: Rectangle;
 
   private pointerId: number | null = null;
+  private _oppositeHandle: Handle | null = null;
   private velocity = new Vec2();
   private positionMeasurments = makeBuffer(2, Vec2.ZERO);
   private velocityRollingWindow = makeBuffer(ROLLING_AVERAGE_WINDOW_LENGHT, Vec2.ZERO)
   
   private get held() { return this.pointerId !== null; }
   private get mass() { return this.held ? IMMOVABLE_MASS : 1; }
+
+  private get oppositeHandle() {
+    assert(this._oppositeHandle !== null);
+    return this._oppositeHandle;
+  }
+
+  public setOppositeHandle(handle: Handle | null) {
+    this._oppositeHandle = handle;
+  }
 
   public constructor({ name, parent, startingPosition, minHandlePosition, maxHandlePosition, boundingRectangle }: Props) {
     super();
@@ -68,12 +79,12 @@ export class Handle extends Sprite {
     }
   }
 
-  public update(deltaMS: number, oppositeHandle: Handle) {
+  public update(deltaMS: number) {
     if (this.held) {
       this.updateHandleInstantVelocity(deltaMS);
     }
     else {
-      this.applyFreeBodyPhysics(deltaMS, oppositeHandle);
+      this.applyFreeBodyPhysics(deltaMS);
     }
   }
 
@@ -101,11 +112,11 @@ export class Handle extends Sprite {
     this.velocity = this.velocity.circularClamp(velocityLimit);
   }
 
-  private applyFreeBodyPhysics(deltaMS: number, oppositeHandle: Handle) {
+  private applyFreeBodyPhysics(deltaMS: number) {
     this.reactToBoundCollision(deltaMS);
     this.moveHandle(deltaMS);
-    this.reactToOppositeHandleCollision(deltaMS, oppositeHandle);
-    this.resolveOverlappingHandles(oppositeHandle);
+    this.reactToOppositeHandleCollision(deltaMS);
+    this.resolveOverlappingHandles();
     this.limitHandleVelocity(MAX_VELOCITY_LENGHT);
     this.applyFriction();
   }
@@ -135,34 +146,34 @@ export class Handle extends Sprite {
     this.position.copyFrom(nextPosition);
   }
 
-  private reactToOppositeHandleCollision(deltaMS: number, oppositeHandle: Handle) {
+  private reactToOppositeHandleCollision(deltaMS: number) {
     const previousPosition = new Vec2(this.position);
     const nextPosition = previousPosition.add(this.velocity.scale(deltaMS));
     const handleCollider = new Circle(nextPosition.x, nextPosition.y, this.texture.width / 2);
 
-    const oppositePreviousPosition = new Vec2(oppositeHandle.position);
-    const oppositeHandleCollider = new Circle(oppositeHandle.x, oppositeHandle.y, oppositeHandle.texture.width / 2);
+    const oppositePreviousPosition = new Vec2(this.oppositeHandle.position);
+    const oppositeHandleCollider = new Circle(this.oppositeHandle.x, this.oppositeHandle.y, this.oppositeHandle.texture.width / 2);
     if (circleToCircleCollisionTest(handleCollider, oppositeHandleCollider) === "collision") {
       const p1 = new Vec2(this);
-      const p2 = new Vec2(oppositeHandle);
-      const v1_prime = fullyElasticCollision(this.mass, oppositeHandle.mass, this.velocity, oppositeHandle.velocity, p1, p2);
-      const v2_prime = fullyElasticCollision(oppositeHandle.mass, this.mass, oppositeHandle.velocity, this.velocity, p2, p1);
+      const p2 = new Vec2(this.oppositeHandle);
+      const v1_prime = fullyElasticCollision(this.mass, this.oppositeHandle.mass, this.velocity, this.oppositeHandle.velocity, p1, p2);
+      const v2_prime = fullyElasticCollision(this.oppositeHandle.mass, this.mass, this.oppositeHandle.velocity, this.velocity, p2, p1);
       this.velocity = v1_prime;
-      oppositeHandle.velocity = v2_prime;
+      this.oppositeHandle.velocity = v2_prime;
 
       const nextPosition = previousPosition.add(this.velocity.scale(deltaMS));
-      const oppositeNextPosition = oppositePreviousPosition.add(oppositeHandle.velocity.scale(deltaMS));
+      const oppositeNextPosition = oppositePreviousPosition.add(this.oppositeHandle.velocity.scale(deltaMS));
       this.position.copyFrom(nextPosition);
-      oppositeHandle.position.copyFrom(oppositeNextPosition);
+      this.oppositeHandle.position.copyFrom(oppositeNextPosition);
     }
   }
 
-  private resolveOverlappingHandles(oppositeHandle: Handle) {
+  private resolveOverlappingHandles() {
     const handleCollider = new Circle(this.x, this.y, this.texture.width / 2);
-    const oppositeHandleCollider = new Circle(oppositeHandle.x, oppositeHandle.y, oppositeHandle.texture.width / 2);
+    const oppositeHandleCollider = new Circle(this.oppositeHandle.x, this.oppositeHandle.y, this.oppositeHandle.texture.width / 2);
     if (circleToCircleCollisionTest(handleCollider, oppositeHandleCollider) === "collision") {
       const p1 = new Vec2(this);
-      const p2 = new Vec2(oppositeHandle);
+      const p2 = new Vec2(this.oppositeHandle);
       const delta = p2.substract(p1);
       const depth = handleCollider.radius + oppositeHandleCollider.radius - delta.length();
 

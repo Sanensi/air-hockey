@@ -1,6 +1,7 @@
 import { Rectangle, Sprite } from "pixi.js";
 import { PixiApplicationBase } from "../libraries/PixiApplicationBase";
 import { Vec2 } from "../libraries/Vec2";
+import { assert } from "./Assertion";
 
 import background_image from "./assets/background.png";
 import handle_image from "./assets/handle.png";
@@ -62,6 +63,8 @@ export class AirHockey extends PixiApplicationBase {
 
   protected start(): void {
     // Initialize game objects
+    this.handle1.setOppositeHandle(this.handle2);
+    this.handle2.setOppositeHandle(this.handle1);
     this.app.stage.addChild(this.background);
     this.background.anchor.set(0.5);
     this.background.interactive = true;
@@ -71,8 +74,8 @@ export class AirHockey extends PixiApplicationBase {
   }
 
   protected update(): void {
-    this.handle1.update(this.app.ticker.deltaMS, this.handle2);
-    this.handle2.update(this.app.ticker.deltaMS, this.handle1);
+    this.handle1.update(this.app.ticker.deltaMS);
+    this.handle2.update(this.app.ticker.deltaMS);
   }
 
   protected resize(): void {
@@ -88,8 +91,4 @@ export class AirHockey extends PixiApplicationBase {
     this.background.height = height;
     this.background.width = width;
   }
-}
-
-function assert(value: unknown, message?: string | Error): asserts value {
-  if (!value) throw message;
 }

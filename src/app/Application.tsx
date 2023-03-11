@@ -7,7 +7,7 @@ export const Application = () => {
 
   switch (current) {
     case Routes.Main:
-      return <MainMenu />;  
+    // return <MainMenu />;
     case Routes.Local:
       return <Game />;
   }

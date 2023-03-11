@@ -5,7 +5,6 @@ import { assert } from "./Assertion";
 
 import background_image from "./assets/background.png";
 import handle_image from "./assets/handle.png";
-import { Handle } from "./Handle";
 
 const OUTER_SIZE = new Vec2(1012, 1594);
 
@@ -20,24 +19,8 @@ const MAX_HANDLE_POSITION = INNER_BOTTOM_RIGHT.substract(new Vec2(HANDLE_RADIUS,
 
 export class AirHockey extends PixiApplicationBase {
   private background = new Sprite();
-
-  private handle1 = new Handle({ 
-    name: "handle-1",
-    parent: this.background,
-    startingPosition: new Vec2(0, 185 * 2),
-    minHandlePosition: MIN_HANDLE_POSITION,
-    maxHandlePosition: MAX_HANDLE_POSITION,
-    boundingRectangle: INNER_BOUNDS,
-  });
-
-  private handle2 = new Handle({ 
-    name: "handle-2",
-    parent: this.background,
-    startingPosition: new Vec2(0, -185 * 2),
-    minHandlePosition: MIN_HANDLE_POSITION,
-    maxHandlePosition: MAX_HANDLE_POSITION,
-    boundingRectangle: INNER_BOUNDS,
-  });
+  private handle1 = new Sprite();
+  private handle2 = new Sprite();
 
   public onUpdate = () => { /** noop */ }
 
@@ -62,20 +45,20 @@ export class AirHockey extends PixiApplicationBase {
   }
 
   protected start(): void {
-    // Initialize game objects
-    this.handle1.setOppositeHandle(this.handle2);
-    this.handle2.setOppositeHandle(this.handle1);
-    this.app.stage.addChild(this.background);
     this.background.anchor.set(0.5);
     this.background.interactive = true;
+
+    const startingPosition = new Vec2(0, 185 * 2);
+    this.handle1.anchor.set(0.5);
+    this.handle1.position.set(startingPosition.x, startingPosition.y);
+
+    this.handle2.anchor.set(0.5);
+    this.handle2.position.set(startingPosition.x, -startingPosition.y);
+
+    this.app.stage.addChild(this.background);
     this.background.addChild(this.handle1);
     this.background.addChild(this.handle2);
     this.resize();
-  }
-
-  protected update(): void {
-    this.handle1.update(this.app.ticker.deltaMS);
-    this.handle2.update(this.app.ticker.deltaMS);
   }
 
   protected resize(): void {
